@@ -80,6 +80,75 @@ the ability to represent anything beyond a straight line.
 |---|---|
 | ![All neurons linear — the sum is still a flat plane](assets/screenshots/screenshot-sum-linear.png) | ![One neuron set to ReLU — the sum folds](assets/screenshots/screenshot-sum-nonlinear.png) |
 
+## Case study: folding one layer into an XOR-like boundary
+
+A single neuron can only ever draw a straight line (a flat hyperplane, in
+higher dimensions) through its input space. No matter how its weights and
+bias are tuned, the boundary where it crosses zero stays straight — so a
+lone neuron can separate two groups of points that sit cleanly on either
+side of a line, but it can never separate groups that sit in *diagonally
+opposite* corners of the input space. The textbook example of that is
+**XOR**: one class occupies the bottom-left and top-right corners, the
+other occupies the bottom-right and top-left, and no single straight line
+can put all of one class on one side. This is a real, well-known limit of
+a single linear classifier, and it's tempting to assume the fix requires
+stacking several hidden layers.
+
+It doesn't. A **single layer** containing a handful of non-linear
+neurons, added together, is already enough — and it's easy to build and
+watch that happen directly in this tool. The example below uses four
+neurons from the side panel:
+
+```
+Neuron 1 (Linear):  Z = 1·X1   + 1·X2   + 0
+Neuron 2 (Tanh):     Z = Tanh(-4.4·X1 - 4.5·X2)
+Neuron 3 (Tanh):     Z = Tanh(-4.6·X1 + 1·X2)
+Neuron 4 (Tanh):     Z = Tanh( 1.8·X1 - 5.1·X2 + 0.5)
+```
+
+Each `Tanh` neuron draws its own straight line through the plane
+(wherever its own `w1·X1 + w2·X2 + b = 0`) and folds the surface along
+it: far from that line the neuron flattens out toward +1 or −1, and only
+close to the line does it curve smoothly between the two. Looked at on
+its own, one `Tanh` neuron is just a single soft step. Press **Σ Show
+Sum** and let the tool add three differently-angled steps together,
+though, and their flat plateaus reinforce each other in some regions and
+cancel out in others — producing a surface with several distinct peaks
+and valleys instead of one simple tilt:
+
+| Isometric view of the combined surface | Live sum formula panel |
+|---|---|
+| ![Four neurons summed together, folding into several peaks and valleys](assets/screenshots/screenshot-xor-isometric.png) | ![The Show Sum formula panel listing each neuron's contribution](assets/screenshots/screenshot-xor-sum-formula.png) |
+
+That's already a genuinely non-linear surface, and it came from a single
+hidden layer — no second layer of neurons was added, only enough neurons
+in the first one, combined together.
+
+The clearest way to read the result is from directly above. Press **Top
+View**, and the zero-crossing — the seam separating blue from orange —
+traces out the exact *decision boundary* this little network would use
+to classify the plane:
+
+![Top-down view showing the boundary bent into an X-shaped, four-quadrant pattern](assets/screenshots/screenshot-xor-topview.png)
+
+Notice the shape: it's no longer a single straight line. It bends into
+an X, splitting the plane into four alternating regions — blue, orange,
+blue, orange — arranged diagonally across from each other. That
+diagonal, non-linearly-separable layout is exactly the shape of the XOR
+problem, solved here with nothing more exotic than four neurons in one
+layer and a plain sum.
+
+It's worth trying by hand: set every neuron to `Linear`, press Show Sum,
+then switch neurons in one at a time to `Tanh`, `ReLU`, or `Sigmoid` and
+watch how each additional fold reshapes the boundary. That's really the
+whole trick behind why solving a non-linear problem doesn't require
+"deep" in the sense of many stacked layers. **Width** — enough neurons in
+one layer — combined with **non-linearity** — any activation that isn't
+flat — is what makes complex, non-convex boundaries possible in the
+first place. Depth (stacking additional layers) is a separate tool for
+representing even more intricate structure *efficiently*, not a
+prerequisite for basic non-linear separability.
+
 ## Getting started
 
 No installation, no package manager, no build step.
