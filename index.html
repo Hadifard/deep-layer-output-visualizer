@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Layer Output Visualizer</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="canvas-wrap">
+
+    <div id="hint">Drag = rotate | Scroll = zoom | Right-drag = pan</div>
+    <div id="fab-row">
+      <div class="fab" id="sum-fab" title="Sum active planes">
+        <div class="fab-icon">&Sigma;</div>
+        <div class="fab-text">Show Sum</div>
+      </div>
+      <div class="fab" id="topview-fab" title="View straight down onto the X1–X2 plane">
+        <div class="fab-icon">&#8963;</div>
+        <div class="fab-text">Top View</div>
+      </div>
+      <div class="fab" id="probe-fab" title="Click on the base grid to drop a vertical connector line">
+        <div class="fab-icon">&#8982;</div>
+        <div class="fab-text">Probe Point</div>
+      </div>
+    </div>
+    <div id="sum-formula"></div>
+    <div id="probe-hint">Click the grid to drop a probe · right-click a probe to remove it · turn off to clear all</div>
+
+  </div>
+  <div id="panel">
+    <h1>Deep Layer Output Visualizer</h1>
+    <p class="sub">
+      Inputs are X1 and X2. Each row is one neuron: Z = w1·X1 + w2·X2 + b, passed through
+      an activation. Edit the weights and bias, pick an activation, and watch the surface
+      change. Blue = positive, orange = negative, and white marks exactly Z = 0.
+    </p>
+
+    <div class="section-title">Neurons</div>
+    <div id="plane-list"></div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Positive</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff"></div>Zero</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Negative</div>
+    </div>
+
+    <div class="note">
+      <b>About the sum without activation:</b><br>
+      Set every neuron to "Linear" and press &Sigma;. The sum is still one flat plane —
+      adding linear functions only produces another linear function. Switch any neuron to
+      ReLU / Tanh / Sigmoid and the combined surface stops being flat.
+    </div>
+  </div>
+
+</div>
+
+<div id="my_name">Hadi Sarhangi Fard . <a href="https://github.com/Hadifard"><b>github.com/Hadifard</b></a>
+</div>
+
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="js/scene-setup.js"></script>
+<script src="js/geometry.js"></script>
+<script src="js/planes.js"></script>
+<script src="js/ui-panel.js"></script>
+<script src="js/probes.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
