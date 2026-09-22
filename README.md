@@ -80,9 +80,120 @@ the ability to represent anything beyond a straight line.
 |---|---|
 | ![All neurons linear — the sum is still a flat plane](assets/screenshots/screenshot-sum-linear.png) | ![One neuron set to ReLU — the sum folds](assets/screenshots/screenshot-sum-nonlinear.png) |
 
+## Reading initialization before you train it
+
+### Why explore this before training
+
+In a real network, every weight and bias almost always starts out as a
+random number — typically drawn from a distribution scaled by schemes
+like Xavier/Glorot or He initialization — and training only nudges those
+numbers around gradually, one small gradient step at a time, until the
+decision boundary lines up with the data. That process works, but it has
+a real cost: if the random starting point lands in an unlucky region of
+weight space, the optimizer can spend a very long time crawling out of
+it — and in some cases, it doesn't fully recover at all.
+
+This tool sidesteps the randomness and lets you *see* the effect of one
+specific weight, bias and activation combination immediately, with no
+training loop involved. Drag a weight, flip an activation, and the
+surface — and its decision boundary — updates on the spot. That's a
+direct way to build intuition for the two things every initialization
+scheme is quietly trying to get right at once: **where** the boundary
+sits relative to the data (set by the *ratio* between the weights and the
+bias), and **how much of the input domain is still "alive"** — still
+capable of producing a useful gradient — at that scale (set by the
+*magnitude* of the weights, together with the choice of activation).
+Getting both roughly right from the start is what lets a network begin
+converging almost immediately, instead of first having to migrate out of
+a bad region of the loss landscape.
+
+None of this replaces random initialization in a real network — a
+production model has far too many weights to hand-tune, and some
+randomness really is necessary so that neurons in the same layer don't
+all start identical and learn the exact same thing. What exploring this
+tool by hand gives you instead is the underlying feel for what schemes
+like Xavier/Glorot and He initialization are specifically built to
+protect: keeping the pre-activation values inside the responsive part of
+the activation function, across as much of the input range as possible.
+
+### Two ways a neuron can go quiet
+
+Two closely related, very common failure modes are easy to trigger by
+hand here, and both are worth seeing at least once.
+
+**Saturation (vanishing gradient).** `Tanh` and `Sigmoid` are both
+S-shaped: near zero they respond smoothly to changes in their input, but
+away from zero they flatten out toward their limits (±1 for `Tanh`, 0/1
+for `Sigmoid`) — and the flatter they are, the closer their local
+gradient gets to zero. If the weights feeding a neuron are large relative
+to the scale of its inputs, the pre-activation value
+`w1·X1 + w2·X2 + b` blows past that responsive middle zone almost
+everywhere in the domain, and the neuron ends up saturated for nearly
+every point it sees. Its gradient during backpropagation shrinks to
+something numerically negligible, so its weights barely move on each
+update — learning there can crawl for a very long time before, if ever,
+it escapes.
+
+| Moderate weights (`w1=1, w2=1`) — smooth, mostly responsive | Large weights (`w1=14, w2=14`) — saturated almost everywhere |
+|---|---|
+| ![A Tanh neuron with moderate weights, showing a smooth, wide transition band](assets/screenshots/screenshot-init-tanh-healthy.png) | ![The same neuron with much larger weights, now a near-vertical cliff with flat saturated plateaus on both sides](assets/screenshots/screenshot-init-tanh-saturated.png) |
+
+Notice how little changed about the underlying idea — same two inputs,
+same activation, only the weights got bigger — and yet the second
+surface is now flat, and therefore gradient-starved, across almost its
+entire visible domain, with all of the useful, responsive behavior
+squeezed into a razor-thin sliver right next to the boundary.
+
+**Dead ReLU.** `ReLU` doesn't saturate the same way — it stays perfectly
+linear for positive inputs — but it has its own failure mode: it outputs
+exactly zero, with exactly zero gradient, for every negative input. If a
+neuron's bias is unlucky enough (strongly negative relative to its
+weights) that its pre-activation value stays negative across the entire
+range of data it ever sees, its output — and its gradient — are zero
+everywhere, always. Since backpropagation moves weights in proportion to
+the gradient, a neuron in that state never receives a signal to move away
+from it. It is, for practical purposes, permanently dead for the rest of
+training.
+
+| Healthy ReLU (`b=0`) | Dead ReLU (`b=-15`) |
+|---|---|
+| ![A ReLU neuron with a normal bias — half the domain flat, half rising](assets/screenshots/screenshot-init-relu-healthy.png) | ![The same neuron with a strongly negative bias — completely flat everywhere, dead](assets/screenshots/screenshot-init-relu-dead.png) |
+
+That second panel is what "the model went off track and can't come back"
+looks like at the level of a single neuron: a flat, colorless plane,
+contributing nothing to the output and receiving no gradient to fix
+itself. Enough dead neurons in a layer, and the network permanently loses
+that portion of its capacity for the rest of training — reviving it
+means restarting from a fresh initialization, which is exactly the time
+cost that exploring weight scale by hand, before training starts, is
+meant to help you avoid.
+
+### It's the ratio, not just the numbers
+
+The two comparisons above change the *magnitude* of the weights, but the
+*ratio* between `w1` and `w2` matters just as much, and controls
+something different: it sets the *orientation* of the neuron's decision
+line through the `X1`–`X2` plane, independent of how sharp or saturated
+that boundary ends up being. Equal weights (`w1 = w2`) put the line
+diagonally across the domain; making one weight much larger than the
+other swings the line to run mostly parallel to one axis; flipping a
+sign mirrors it onto the opposite diagonal. The bias, meanwhile, slides
+that same line away from the origin without rotating it at all.
+
+Put together: the *ratio* of `w1` to `w2` decides **where the boundary
+points**, and the overall *magnitude*, relative to the bias, decides
+**how sharp and how saturated** it is. Both are visible and instantly
+adjustable here — which is the whole premise of this section of the
+tool. Instead of waiting through many rounds of gradient descent to
+discover that a boundary was oriented the wrong way, or that a whole
+neuron had gone flat and stopped learning, you can see both problems
+directly and correct for them before training ever starts.
+
 ## Case study: folding one layer into an XOR-like boundary
 
-A single neuron can only ever draw a straight line (a flat hyperplane, in
+The same two levers — ratio and magnitude — that keep a single neuron
+healthy scale up directly to a small layer of them. A single neuron can
+only ever draw a straight line (a flat hyperplane, in
 higher dimensions) through its input space. No matter how its weights and
 bias are tuned, the boundary where it crosses zero stays straight — so a
 lone neuron can separate two groups of points that sit cleanly on either
@@ -230,6 +341,87 @@ into one file, so each script has a single, clearly-named job and can be
 read top to bottom on its own. Load order matters — `index.html` includes
 the scripts in the sequence above, since each one builds on state set up
 by the ones before it.
+
+## Code walkthrough
+
+This project intentionally has no build step, no framework and no
+package manager: it's plain HTML, CSS and JavaScript, loaded directly by
+the browser, split into small files purely for readability.
+
+### Markup and styling
+
+`index.html` contains structure only — the canvas container, the
+floating buttons, and an empty side-panel shell. Every neuron row inside
+the panel is generated by JavaScript at runtime (see **ui-panel.js**
+below); nothing about the panel's content is hard-coded in the HTML.
+
+`css/style.css` centers on a single `:root` block of CSS custom
+properties (`--bg`, `--panel`, `--blue`, `--orange`, and so on), so the
+entire color palette — background, panel, positive/negative surface
+colors — lives in one place and can be re-themed by editing a handful of
+variables instead of hunting through selectors. Layout is plain flexbox:
+`#app` splits the window into the flexible canvas area and a fixed
+420px side panel. Every floating overlay control — the FAB buttons, the
+hint text, the sum formula, the probe hint — is absolutely positioned
+*on top of* the canvas rather than laid out alongside it, so the WebGL
+canvas can freely resize underneath them without disturbing the layout.
+
+### JavaScript: six files, one dependency order
+
+There's no module bundler here, so the six script files are loaded as
+plain, classic `<script>` tags in a specific order, and they share the
+browser's single global scope — each file simply continues where the
+previous one left off, the same way the whole thing worked as one large
+`<script>` block before it was split apart. The load order in
+`index.html` **is** the dependency order:
+
+1. **`scene-setup.js`** creates everything every other file needs: the
+   `scene`, an `OrthographicCamera` (chosen specifically so no surface is
+   ever foreshortened by perspective, no matter the viewing angle), the
+   renderer, `OrbitControls`, lighting, the base grid, and the axis lines
+   with their sprite-based text labels.
+2. **`geometry.js`** holds only pure, reusable pieces: the four
+   activation functions, the shared `(X1, X2)` sampling grid (computed
+   once, so every neuron surface and the sum surface are always
+   perfectly aligned to the same points), the height-to-color mapping,
+   and the two functions — `buildEmptyMesh()` and `updateMeshHeights()`
+   — that every surface in the scene is built and refreshed through.
+3. **`planes.js`** is the model layer: the `planeDefs` array holds each
+   neuron's live weights, bias, activation and mesh, plus the functions
+   that keep the visuals in sync with that state — `recomputePlane()`
+   for one neuron, `recomputeSum()` for the combined surface and its
+   formula text, and `applyVisibility()` for switching between the
+   normal and "halo" (sum-visible) look.
+4. **`ui-panel.js`** is the only file that touches the DOM directly: it
+   builds each neuron's row from a template string, and wires up its
+   checkbox, inputs and activation buttons, plus the Show Sum / Top View
+   buttons. Every event handler here does the same small thing — update
+   one field on a `planeDefs` entry, then call straight back into the
+   `recompute*` functions from **planes.js**. There's no separate
+   state-management layer; the DOM elements and the `planeDefs` objects
+   are kept in sync by direct function calls, not by a data-binding
+   system.
+5. **`probes.js`** is the most self-contained file: it uses a
+   `THREE.Raycaster` to test the pointer against the base grid, and
+   builds each probe as its own small group of primitives — a vertical
+   line, marker spheres, and canvas-texture sprites for the floating
+   numeric labels — so a probe can be created and disposed of as one
+   unit.
+6. **`main.js`** is deliberately the smallest file: it runs the first
+   `recomputeAll()` so nothing is blank on load, wires up the resize
+   handler, and starts the `requestAnimationFrame` loop. Everything it
+   needs already exists by the time it runs, because of the load order
+   above.
+
+The pattern across all six files is the same one the original single-file
+version used: a handful of plain objects hold the current state
+(`planeDefs`, `sumVisible`, the `probes` array), and a small set of
+`recompute*` / `apply*` functions read that state and rewrite the
+Three.js geometry and the relevant bit of DOM text. There's no virtual
+DOM, no reactive framework and no data-binding library involved — every
+input event calls straight into the function that needs to run, which
+keeps the whole thing small enough to read start to finish in one
+sitting.
 
 ## Technology
 
